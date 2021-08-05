@@ -33,9 +33,24 @@ public class ARWrapper {
 	}
 	
 	@HostAccess.Export
-	public Object call(String specId, String command, List<Object> args) {
+	public Object call(Map<String, Object> query, List<Object> args) {
 		try {
-			ActionQuery aq = new ActionQuery().type(TYPE.SPECIFICATION).specificationID(specId).command(command);
+			ActionQuery aq = new ActionQuery().type(TYPE.SPECIFICATION);
+			if(query.containsKey("type") && query.get("type").equals("script")) {
+				aq.type(TYPE.SCRIPT);
+				if(query.containsKey("tags")) {
+					aq.tags(List.copyOf((List<String>)query.get("tags")));
+				}
+			}else {
+				if(query.containsKey("specID")) {
+					aq.specificationID((String) query.get("specID"));
+				}
+				if(query.containsKey("pluginID")) {
+					aq.specificationID((String) query.get("pluginID"));
+				}
+			}
+			aq.command((String)query.get("command"));
+			
 			Action<?> action = Action.getAction(aq);
 			
 			System.out.println(Arrays.toString(args.toArray()));
@@ -51,12 +66,10 @@ public class ARWrapper {
 	}
 	
 	@HostAccess.Export
-	public void expose(String command, List<String> actionDef, ProxyExecutable pe) {
+	public void expose(String command, List<String> tags, ProxyExecutable pe) {
 		try {
 			ARWrapper.actions.put(command, pe);
-//			defineAction.set("0", new ScriptActionDefinition(command, actionDef, this.getSelfQuery()));
-//			System.out.println("in EXPOSE exposing: " + command);
-			this.defineAction.run(new ScriptActionDefinition(command, actionDef, this.getSelfQuery()));
+			this.defineAction.run(new ScriptActionDefinition(command, List.copyOf(tags), this.getSelfQuery()));
 		} catch (InvalidArgumentException | ArgumentLengthException | PluginException e) {
 			e.printStackTrace();
 		}
@@ -64,8 +77,10 @@ public class ARWrapper {
 
 	public static Object invoke(String command, Map<String, Object> arguments) throws PluginException {
 		try {
-			return ARWrapper.actions.get(command).execute(Value.asValue(arguments));
+			var a = ARWrapper.actions.get(command);
+			return a.execute(Value.asValue(arguments));
 		} catch(Exception e) {
+			e.printStackTrace();
 			throw new PluginException(e);
 		}
 	}

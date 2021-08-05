@@ -1,6 +1,9 @@
 package org.homi.plugins.scripting.vsse;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -11,7 +14,6 @@ import org.graalvm.polyglot.Context;
 import deviceRegistrySpec.Device;
 
 import org.graalvm.polyglot.Source;
-import org.graalvm.polyglot.Value;
 import org.homi.plugin.api.exceptions.InternalPluginException;
 import org.graalvm.polyglot.Context.Builder;
 
@@ -35,8 +37,30 @@ public class ScriptHandler implements Consumer<Path> {
 	
 	public Object eval(String script) throws InternalPluginException {
 		try {
-			Value v;
-			var context = cb.build();
+			OutputStream myOut = new OutputStream() {
+				ByteArrayOutputStream contents = new ByteArrayOutputStream();
+				@Override
+				public void write(int b) throws IOException {
+					if(contents != null)
+						contents.write(b);
+					System.out.write(b);
+					
+				}
+				
+				@Override
+				public String toString() {
+					String tmp;
+					if(contents != null) {
+						tmp = this.contents.toString();
+						this.contents.reset();
+					}
+					else
+						tmp = System.out.toString();
+					return tmp;
+				}
+			};
+			
+			var context = cb.out(myOut).err(myOut).build();
 			context.getBindings("js").putMember("ActionRegistry", this.arw);
 			context.getBindings("js").putMember("ObserverFactory", new ObserverFactory(context));
 			context.getBindings("js").putMember("timer", new JSTimer(context));
@@ -44,10 +68,11 @@ public class ScriptHandler implements Consumer<Path> {
 			
 			synchronized (context) {
 				context.enter();
-				v = context.eval("js", script);
+				context.eval("js", script);
 				context.leave();
 			}
-			return v;
+			String myOutput = myOut.toString();
+			return myOutput;
 		} catch(Exception e) {
 			throw new InternalPluginException(e);
 		}

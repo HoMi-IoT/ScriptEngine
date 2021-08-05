@@ -1,5 +1,6 @@
 package org.homi.plugins.scripting.vsse;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import org.homi.plugin.api.PluginID;
@@ -53,6 +54,7 @@ public class ScriptingEnginePlugin extends AbstractBasicPlugin {
 	
 	private Object invokeScriptAction(Object...args) throws InternalPluginException {
 		try {
+
 			return ARWrapper.invoke((String)args[0], (Map<String,Object>)args[1]);
 		} catch(Exception e) {
 			throw new InternalPluginException(e);
